@@ -1,10 +1,8 @@
 import uuid
-from langchain_core.runnables import RunnablePassthrough
-from langchain_core.output_parsers import StrOutputParser
+from langchain.schema.document import Document
 from langchain_openai import ChatOpenAI
 from langchain_openai import OpenAIEmbeddings
 from langchain_core.prompts import ChatPromptTemplate
-from langchain.schema.document import Document
 from langchain.storage import InMemoryStore
 from langchain.retrievers.multi_vector import MultiVectorRetriever
 from langchain_community.vectorstores import Qdrant
@@ -12,12 +10,8 @@ from langchain import hub
 from unstructured.staging.base import elements_from_json
 from qdrant_lc import QdrantVectorStore
 from pdf_utils import categorize_elements, summarize_table_or_text
-from dotenv import load_dotenv
-
-load_dotenv()
 
 
-# ========================== Retriver ================================
 
 # Categorize PDF elements
 raw_pdf_elements = elements_from_json(filename="./data/raw_elements_chunked.json")
@@ -31,7 +25,7 @@ text_summaries = summarize_table_or_text(texts=texts)
 tables = [i.text for i in table_elements]
 table_summaries = summarize_table_or_text(texts=tables)
 
-# ==========================================
+# ======================================================================================================
 
 # Retriever
 q_client = QdrantVectorStore()
@@ -66,24 +60,3 @@ summary_tables = [
 ]
 retriever.vectorstore.add_documents(summary_tables)
 retriever.docstore.mset(list(zip(table_ids, table_elements)))
-
-
-# ============================= Chain ===============================
-
-# Prompt template
-template = hub.pull("moraouf/simple_semi_structured_rag_qa:59ce3634")
-prompt = ChatPromptTemplate.from_template(template)
-
-# LLM
-model = ChatOpenAI(temperature=0, model="gpt-3.5-turbo")
-
-# RAG pipeline
-semi_structured_chain = (
-    {"context": retriever, "question": RunnablePassthrough()} 
-    | prompt 
-    | model 
-    | StrOutputParser()
-)
-
-query = "Can you explain what medical necessity is in relation to coverage?"
-# semi_structured_chain.invoke(query)
