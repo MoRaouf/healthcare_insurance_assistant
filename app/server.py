@@ -1,9 +1,15 @@
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from langserve import add_routes
-from app.chain import semi_structured_chain
+from langchain_core.runnables import RunnableLambda
+from pydantic import BaseModel
+from query_service import QueryService
 
 app = FastAPI()
+
+class Input(BaseModel):
+    question: str
+    session_id: str
 
 
 @app.get("/")
@@ -12,7 +18,11 @@ async def redirect_root_to_docs():
 
 
 # Edit this to add the chain you want to add
-add_routes(app, semi_structured_chain, "/rag")
+add_routes(
+    app, 
+    RunnableLambda(QueryService.query_route).with_types(input_type=Input), 
+    "/rag"
+    )
 
 if __name__ == "__main__":
     import uvicorn
