@@ -22,6 +22,7 @@ healthcare_insurance = Route(
         "what does the travel healthcare insurance policy cover?",
         "what is the criteria to avail the benefits of the travel healthcare insurance?",
         "who is the provider of the travel healthcare insurance?",
+        "who is the provider of the insurance?",
         "what are the terms applicable in case of emergency in the policy",
     ],
 )

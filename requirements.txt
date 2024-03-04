@@ -2,7 +2,7 @@ langchain==0.1.6
 langchain-core==0.1.23
 langchain-community==0.0.19
 langchain-openai==0.0.6
-langserve==0.0.41
+langserve==0.0.46
 qdrant-client==1.7.3
 unstructured==0.12.4
 openai==1.12.0

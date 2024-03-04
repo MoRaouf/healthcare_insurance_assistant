@@ -1,62 +1,99 @@
+import json
+import logging
 import uuid
-from langchain.schema.document import Document
-from langchain_openai import ChatOpenAI
-from langchain_openai import OpenAIEmbeddings
-from langchain_core.prompts import ChatPromptTemplate
-from langchain.storage import InMemoryStore
+
 from langchain.retrievers.multi_vector import MultiVectorRetriever
+from langchain.schema.document import Document
+from langchain.storage import InMemoryStore
 from langchain_community.vectorstores import Qdrant
-from langchain import hub
-from unstructured.staging.base import elements_from_json
-from qdrant_lc import QdrantVectorStore
-from pdf_utils import categorize_elements, summarize_table_or_text
+from langchain_openai import OpenAIEmbeddings
+
+logging.basicConfig(level = logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 
-# Categorize PDF elements
-raw_pdf_elements = elements_from_json(filename="./data/raw_elements_chunked.json")
-text_elements, table_elements = categorize_elements(raw_pdf_elements= raw_pdf_elements)
+def build_retriever(
+        vectorstore_collection_name: str,
+)-> MultiVectorRetriever:
+    """Builds a MultiVector Retriever with Qdrant as Vector Store & InMemory Doc Store
 
-# Apply to text
-texts = [i.text for i in text_elements]
-text_summaries = summarize_table_or_text(texts=texts)
+    Args:
+        vectorstore_collection_name (str): Collection name to be created in Qdrant
 
-# Apply to tables
-tables = [i.text for i in table_elements]
-table_summaries = summarize_table_or_text(texts=tables)
+    Returns:
+        MultiVectorRetriever: An instance of MultiVectorRetriever
+    """
 
-# ======================================================================================================
+    with open("./data/processed/pdf_texts.json", "r") as file:
+        texts = json.load(file)
 
-# Retriever
-q_client = QdrantVectorStore()
-qdrant = Qdrant(client=q_client.client, collection_name="healthcare_demo", embeddings=OpenAIEmbeddings())
+    with open("./data/processed/pdf_text_summaries.json", "r") as file:
+        text_summaries = json.load(file)
 
-# The storage layer for the parent documents
-store = InMemoryStore()
-id_key = "doc_id"
+    with open("./data/processed/pdf_tables.json", "r") as file:
+        tables = json.load(file)
+    
+    with open("./data/processed/pdf_table_summaries.json", "r") as file:
+        table_summaries = json.load(file)
 
-# The retriever (empty to start)
-retriever = MultiVectorRetriever(
-    vectorstore=qdrant,
-    docstore=store,
-    id_key=id_key,
-)
+    logger.info("Loaded PDF elements")
+
+    # ============================ Retriever ================================
+    # q_client = QdrantVectorStore()
+    # qdrant = Qdrant(client=q_client.client, collection_name="healthcare_demo", embeddings=OpenAIEmbeddings())
+    qdrant = Qdrant.construct_instance(
+        texts=["test"],
+        embedding=OpenAIEmbeddings(model="text-embedding-3-small"),
+        collection_name=vectorstore_collection_name,
+        path="./qdrant_db",
+    )
+
+    # The storage layer for the parent documents
+    store = InMemoryStore()
+    id_key = "doc_id"
+
+    # The retriever (empty to start)
+    retriever = MultiVectorRetriever(
+        vectorstore=qdrant,
+        docstore=store,
+        id_key=id_key,
+    )
+
+    # Add texts to MultiVector Retriever
+    doc_ids = [str(uuid.uuid4()) for _ in texts]
+    summary_text_docs = [
+        Document(page_content=s, metadata={id_key: doc_ids[i]})
+        for i, s in enumerate(text_summaries)
+    ]
+
+    retriever.vectorstore.add_documents(
+        documents=summary_text_docs,
+        # embedding=OpenAIEmbeddings(model="text-embedding-3-small"),
+        # collection_name="healthcare_demo",
+        # path="/qdrant_db",
+        )
+    retriever.docstore.mset(list(zip(doc_ids, texts)))
+    logger.info("Added text documents to retriever")
+
+    # Add tables to MultiVector Retriever
+    table_ids = [str(uuid.uuid4()) for _ in tables]
+    summary_table_docs = [
+        Document(page_content=s, metadata={id_key: table_ids[i]})
+        for i, s in enumerate(table_summaries)
+    ]
+    retriever.vectorstore.add_documents(summary_table_docs)
+    logger.info("Added table documents to retriever")
+
+    return retriever
 
 
-# Add texts to MultiVector Retriever
-doc_ids = [str(uuid.uuid4()) for _ in text_elements]
-summary_texts = [
-    Document(page_content=s, metadata={id_key: doc_ids[i]})
-    for i, s in enumerate(text_summaries)
-]
-retriever.vectorstore.add_documents(summary_texts)
-retriever.docstore.mset(list(zip(doc_ids, text_elements)))
+if __name__ == "__main__":
 
-# Add tables to MultiVector Retriever
-table_ids = [str(uuid.uuid4()) for _ in table_elements]
-summary_tables = [
-    Document(page_content=s, metadata={id_key: table_ids[i]})
-    for i, s in enumerate(table_summaries)
-]
-retriever.vectorstore.add_documents(summary_tables)
-retriever.docstore.mset(list(zip(table_ids, table_elements)))
+    # Check if retriever is built correctly
+    collection_name="healthcare_demo"
+    retriever = build_retriever(
+        vectorstore_collection_name=collection_name,
+    )
+
+    print(retriever.vectorstore.similarity_search("provider of insurance"))
