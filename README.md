@@ -1,5 +1,15 @@
 # healthcare-insurance-assistant
 
+## Features
+* Processes PDF file using Unstrucutured.io.
+* Uses Qdrant vectorstore to embed & store PDF chunks.
+* Implements RAG using `MultiVectorRetriever` with texts & tables summaries stored in `InMemoryStore`.
+* Includes chat history & persists it to disk.
+* Implemets a routing mechanism to enable RAG when needed.
+* Leverages LangServe for a quick chatbot frontend UI & backend API.
+
+![LangServe Snapshot](LangServe_Snapshot.png)
+
 ## Installation
 
 Install the LangChain CLI if you haven't yet

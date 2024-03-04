@@ -68,16 +68,15 @@ query_service = QueryService()
 
 # InputChat is the input to RunnableLambda, which formats the Pydantic model to dict & pass it to `query_service.server_query`
 # Final Chain with Chat History displayed on UI 
-final_chain = RunnableLambda(_format_to_dict).with_types(input_type=InputChat) | RunnableLambda(query_service.server_query)
+# final_chain = RunnableLambda(_format_to_dict).with_types(input_type=InputChat) | RunnableLambda(query_service.server_query)
 
 # Final Chain with Chat History displayed on UI -- & assign the output to `answer` key
-# final_chain = RunnableParallel(
-#     {"answer": (
-#         RunnableLambda(_format_to_dict) 
-#         | RunnableLambda(query_service.server_query)
-#         )
-#     }
-# ).with_types(input_type=InputChat)
+final_chain = RunnableParallel(
+    {"answer": (
+        RunnableLambda(_format_to_dict) | RunnableLambda(query_service.server_query)
+        )
+    }
+).with_types(input_type=InputChat)
 
 
 @app.get("/")
